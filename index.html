@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <!--
+    viewport: le dice al navegador cómo escalar la página en móviles.
+    - width=device-width  → usa el ancho real del dispositivo (no el virtual)
+    - initial-scale=1     → no aplica zoom automático al cargar
+    Sin esto, en celular el mapa se vería muy pequeño.
+  -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>UbicaTESE – Mapa interactivo del campus</title>
+
+    <style>
+        /* =====================================================================
+       CONTENEDOR PRINCIPAL
+       Envuelve al SVG y a la tarjeta. Necesita position:relative para que
+       la tarjeta (position:absolute) se posicione respecto a él y no
+       respecto a toda la página.
+    ====================================================================== */
+        #contenedor {
+            position: relative;
+            max-width: 1000px;
+        }
+
+        /* El SVG ocupa todo el ancho del contenedor y no deja espacio extra abajo */
+        svg {
+            width: 100%;
+            display: block;
+        }
+
+        /* =====================================================================
+       TARJETA DE INFORMACIÓN (escritorio)
+       Aparece flotando sobre el mapa, en la esquina superior derecha.
+       - position:absolute la saca del flujo normal y la pega al contenedor
+       - transition hace que aparezca/desaparezca con animación suave
+    ====================================================================== */
+        #tarjeta {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 280px;
+            max-width: calc(100% - 32px);
+            /* evita que se salga del mapa en pantallas pequeñas */
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 16px 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            font-family: system-ui, sans-serif;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            /* animación al mostrar/ocultar */
+        }
+
+        /*
+      Estado "oculta": la tarjeta está invisible e inaccesible.
+      - opacity:0           → transparente (pero sigue ocupando espacio)
+      - translateY(-8px)    → sube un poco para dar sensación de "salida"
+      - pointer-events:none → desactiva clics cuando está oculta
+      La clase se agrega/quita con JavaScript.
+    */
+        #tarjeta.oculta {
+            opacity: 0;
+            transform: translateY(-8px);
+            pointer-events: none;
+        }
+
+        /* Título de la tarjeta: margen derecho de 28px para no tapar el botón × */
+        #tarjeta h2 {
+            margin: 0 28px 8px 0;
+            font-size: 1.1rem;
+        }
+
+        /* Texto descriptivo del edificio */
+        #tarjeta p {
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            color: #444;
+        }
+
+        /* Botón × para cerrar la tarjeta: posicionado en la esquina superior derecha */
+        #tarjeta-cerrar {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            border: none;
+            background: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* =====================================================================
+       ESTILOS DE LOS POLÍGONOS (edificios)
+       Cada edificio es un <polygon> SVG con esta clase.
+    ====================================================================== */
+
+        /* Estado normal: relleno amarillo semitransparente, borde naranja */
+        .edificio {
+            fill: rgba(255, 213, 79, 0.35);
+            stroke: #e65100;
+            stroke-width: 2;
+        }
+
+        /*
+      Hover: solo en dispositivos con ratón (hover:hover).
+      En móvil no existe el hover, así que esta regla se omite
+      para evitar que el edificio se quede "pegado" en el estado hover.
+    */
+        @media (hover: hover) {
+            .edificio:hover {
+                fill: rgba(255, 213, 79, 0.75);
+                cursor: pointer;
+            }
+        }
+
+        /* Estado seleccionado: relleno azul, borde azul más grueso */
+        .edificio.seleccionado {
+            fill: rgba(66, 133, 244, 0.6);
+            stroke: #1a73e8;
+            stroke-width: 3;
+        }
+
+        /* =====================================================================
+       DISEÑO RESPONSIVO PARA MÓVIL (pantallas ≤ 600px)
+       En lugar de flotar sobre el mapa, la tarjeta aparece como un panel
+       que sube desde la parte inferior de la pantalla.
+    ====================================================================== */
+        @media (max-width: 600px) {
+            #tarjeta {
+                top: auto;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: auto;
+                max-width: none;
+                border-radius: 12px 12px 0 0;
+                /* esquinas redondeadas solo arriba */
+            }
+
+            /* En móvil, "oculta" significa deslizarse hacia abajo fuera de pantalla */
+            #tarjeta.oculta {
+                transform: translateY(100%);
+            }
+
+            /* Botón de cerrar un poco más grande para facilitar el toque con el dedo */
+            #tarjeta-cerrar {
+                font-size: 1.8rem;
+                padding: 4px 8px;
+            }
+        }
+
+        /* =====================================================================
+       POLÍGONO DE TRAZADO (herramienta de desarrollo)
+       Se dibuja en tiempo real mientras el desarrollador hace clic
+       para obtener las coordenadas de un edificio nuevo.
+       pointer-events:none → no interfiere con los clics del mapa.
+    ====================================================================== */
+        #trazo {
+            fill: rgba(0, 188, 212, 0.35);
+            stroke: #00bcd4;
+            stroke-width: 2;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <!--
+    CONTENEDOR PRINCIPAL
+    Agrupa el mapa SVG y la tarjeta flotante.
+    position:relative (definido en CSS) es clave para que la tarjeta
+    se posicione correctamente dentro de este div.
+  -->
+    <div id="contenedor">
+
+        <!--
+      MAPA SVG
+      viewBox="0 0 987 575" define el sistema de coordenadas interno del SVG.
+      Significa: origen en (0,0), ancho 987, alto 575.
+    -->
+        <svg id="mapa" viewBox="0 0 665 284">
+
+            <!--
+        Imagen de fondo del campus.
+        - href: ruta a la imagen (debe estar en la misma carpeta)
+        - width/height: deben coincidir con los valores del viewBox (665 y 284)
+      -->
+            <image href="campus.png" x="0" y="0" width="665" height="284" />
+
+            <!--
+        Capa de edificios: aquí JavaScript inserta dinámicamente
+        un <polygon> por cada edificio definido en el array `edificios`.
+      -->
+            <g id="edificios"></g>
+
+            <!--
+        Polígono de trazado: solo visible en modo desarrollador (?trazar).
+        Se actualiza en tiempo real con los puntos donde se hace clic.
+      -->
+            <polygon id="trazo" points="" />
+        </svg>
+
+        <!--
+      HERRAMIENTA DE TRAZADO (solo modo desarrollador)
+      Se activa agregando "?trazar" a la URL: index.html?trazar
+      Permite hacer clic en el mapa para obtener coordenadas de polígonos.
+      El atributo "hidden" la oculta por defecto; JavaScript la muestra
+      si detecta "?trazar" en la URL.
+    -->
+        <div id="herramienta" hidden>
+            <p><strong>Modo trazado:</strong> haz clic en las esquinas de un edificio.</p>
+            <!-- Campo de texto de solo lectura que muestra los puntos generados.
+           Al hacer clic en él, selecciona todo el texto para fácil copiado. -->
+            <input id="trazo-texto" readonly onclick="this.select()" style="width:100%">
+            <button id="trazo-borrar-ultimo">Borrar último punto</button>
+            <button id="trazo-limpiar">Empezar de nuevo</button>
+        </div>
+
+        <!--
+      TARJETA DE INFORMACIÓN
+      Empieza oculta (clase "oculta"). JavaScript le quita esa clase
+      cuando el usuario hace clic en un edificio, y la agrega de vuelta
+      al cerrar o hacer clic en el mapa vacío.
+    -->
+        <div id="tarjeta" class="oculta">
+            <!-- Botón para cerrar la tarjeta manualmente -->
+            <button id="tarjeta-cerrar" aria-label="Cerrar">×</button>
+            <!-- Estos elementos se llenan dinámicamente con JavaScript -->
+            <h2 id="tarjeta-nombre"></h2>
+            <p id="tarjeta-descripcion"></p>
+        </div>
+
+    </div><!-- fin #contenedor -->
+
+    <!-- Muestra las coordenadas SVG del último clic en el mapa.
+       Útil en modo trazado para verificar puntos. -->
+    <p id="coordenadas">Haz clic en el mapa para ver coordenadas</p>
+
+    <script>
+        /* ===================================================================
+           DATOS DE LOS EDIFICIOS
+           Cada objeto representa un edificio con tres propiedades:
+             - nombre:      texto que aparece como título en la tarjeta
+             - descripcion: texto descriptivo del edificio
+             - puntos:      coordenadas SVG del polígono (formato "x,y x,y ...")
+        =================================================================== */
+        const edificios = [
+            {
+                nombre: "Hangar de aeronaves",
+                descripcion: "descripción",
+                puntos: "X,Y X,Y X,Y X,Y"
+            },
+        ];
+
+        /* Referencias a elementos del DOM que se usan frecuentemente */
+        const mapa = document.getElementById("mapa");
+        const capa = document.getElementById("edificios"); // <g> donde se insertan los polígonos
+        const tarjeta = document.getElementById("tarjeta");
+
+        /* Guarda el polígono actualmente seleccionado (o null si ninguno) */
+        let seleccionado = null;
+
+        /* =================================================================
+           FUNCIÓN: mostrarInfo(edificio, poligono)
+           Se llama cuando el usuario hace clic en un edificio.
+           - Quita el estilo "seleccionado" del edificio anterior (si había)
+           - Marca el nuevo polígono como seleccionado
+           - Rellena la tarjeta con los datos del edificio
+           - Hace visible la tarjeta quitando la clase "oculta"
+        ================================================================= */
+        function mostrarInfo(edificio, poligono) {
+            if (seleccionado !== null) {
+                seleccionado.classList.remove("seleccionado"); // deselecciona el anterior
+            }
+            poligono.classList.add("seleccionado"); // selecciona el nuevo
+            seleccionado = poligono;                // guarda la referencia
+
+            // Llena la tarjeta con los datos del edificio clickeado
+            document.getElementById("tarjeta-nombre").textContent = edificio.nombre;
+            document.getElementById("tarjeta-descripcion").textContent = edificio.descripcion;
+            tarjeta.classList.remove("oculta"); // hace visible la tarjeta con animación
+        }
+
+        /* =================================================================
+           FUNCIÓN: deseleccionar()
+           Limpia la selección actual y oculta la tarjeta.
+           Se llama al: cerrar la tarjeta, presionar Escape, o clic en mapa vacío.
+        ================================================================= */
+        function deseleccionar() {
+            if (seleccionado !== null) {
+                seleccionado.classList.remove("seleccionado");
+                seleccionado = null;
+            }
+            tarjeta.classList.add("oculta"); // oculta la tarjeta con animación
+        }
+
+        /* Cierra la tarjeta al hacer clic en el botón × */
+        document.getElementById("tarjeta-cerrar").addEventListener("click", deseleccionar);
+
+        /* Cierra la tarjeta también al presionar la tecla Escape */
+        document.addEventListener("keydown", function (evento) {
+            if (evento.key === "Escape") {
+                deseleccionar();
+            }
+        });
+
+        /* =================================================================
+           CREACIÓN DINÁMICA DE POLÍGONOS
+           Por cada edificio en el array, se crea un <polygon> SVG,
+           se le asignan sus coordenadas y su clase CSS, y se le
+           agrega un listener para el clic. Finalmente se inserta en el <g>.
+    
+           ¿Por qué createElementNS?
+           Los elementos SVG requieren un "namespace" especial para funcionar
+           correctamente. Si usáramos createElement normal, el polígono
+           existiría en el DOM pero no se renderizaría visualmente.
+        ================================================================= */
+        edificios.forEach(function (edificio) {
+            const poligono = document.createElementNS(
+                "http://www.w3.org/2000/svg", // namespace obligatorio para SVG
+                "polygon"
+            );
+            poligono.setAttribute("points", edificio.puntos); // coordenadas del polígono
+            poligono.setAttribute("class", "edificio");       // aplica los estilos CSS
+
+            // Al hacer clic en este polígono, muestra la info de su edificio
+            poligono.addEventListener("click", function () {
+                mostrarInfo(edificio, poligono);
+            });
+
+            capa.appendChild(poligono); // agrega el polígono al SVG
+        });
+
+
+        /* =================================================================
+           HERRAMIENTA DE TRAZADO (modo desarrollador)
+           Se activa con: link?trazar
+           Permite hacer clic en el mapa para obtener las coordenadas
+           de las esquinas de un edificio nuevo.
+        ================================================================= */
+
+        // Detecta si la URL contiene "?trazar" para activar el modo
+        const modoTrazado = location.search.includes("trazar");
+        const herramienta = document.getElementById("herramienta");
+        const trazo = document.getElementById("trazo");            // polígono visual de previsualización
+        const campoTexto = document.getElementById("trazo-texto"); // input donde se muestra el resultado
+        const trazoPuntos = [];   // array que acumula los puntos clickeados, ej: ["120,45", "200,45"]
+
+        // Muestra u oculta el panel de herramienta según el modo
+        herramienta.hidden = !modoTrazado;
+
+        /* Actualiza el polígono de previsualización y el campo de texto */
+        function actualizarTrazo() {
+            const texto = trazoPuntos.join(" "); // une los puntos con espacio: "120,45 200,45 200,90"
+            trazo.setAttribute("points", texto); // dibuja el polígono en pantalla
+            campoTexto.value = texto;            // muestra el resultado en el input para copiarlo
+        }
+
+        /* Quita el último punto clickeado (útil si se cometió un error) */
+        document.getElementById("trazo-borrar-ultimo").addEventListener("click", function () {
+            trazoPuntos.pop(); // elimina el último elemento del array
+            actualizarTrazo();
+        });
+
+        /* Borra todos los puntos y empieza el trazado desde cero */
+        document.getElementById("trazo-limpiar").addEventListener("click", function () {
+            trazoPuntos.length = 0; // vacía el array sin crear uno nuevo
+            actualizarTrazo();
+        });
+
+        /* =================================================================
+           LISTENER PRINCIPAL DE CLIC EN EL MAPA
+           Un solo listener maneja tres responsabilidades:
+             1. Deseleccionar si se hizo clic en zona vacía (no en edificio)
+             2. Calcular y mostrar las coordenadas SVG del clic
+             3. En modo trazado: agregar el punto al array de trazado
+    
+           ¿Por qué convertir coordenadas?
+           evento.clientX/Y son coordenadas de la pantalla (píxeles del monitor).
+           El mapa SVG tiene su propio sistema de coordenadas (0-987, 0-575).
+           getScreenCTM().inverse() es la fórmula para convertir entre ambos.
+        ================================================================= */
+        mapa.addEventListener("click", function (evento) {
+
+            // Si el clic fue en zona vacía (no en un polígono), cierra la tarjeta
+            if (!evento.target.classList.contains("edificio")) {
+                deseleccionar();
+            }
+
+            // Convierte las coordenadas de pantalla a coordenadas SVG
+            const punto = mapa.createSVGPoint();
+            punto.x = evento.clientX; // posición X en la pantalla
+            punto.y = evento.clientY; // posición Y en la pantalla
+            const p = punto.matrixTransform(mapa.getScreenCTM().inverse()); // → coordenadas SVG
+
+            // Muestra las coordenadas SVG debajo del mapa (redondeadas a entero)
+            document.getElementById("coordenadas").textContent =
+                Math.round(p.x) + ", " + Math.round(p.y);
+
+            // En modo trazado: agrega este punto al array y actualiza la previsualización
+            if (modoTrazado) {
+                trazoPuntos.push(Math.round(p.x) + "," + Math.round(p.y));
+                actualizarTrazo();
+            }
+        });
+    </script>
+</body>
+
+</html>

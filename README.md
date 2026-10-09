@@ -1,6 +1,6 @@
 # 🗺️ UbicaTESE – Mapa Interactivo del Campus
 
-Mapa interactivo del campus del **Tecnológico de Estudios Superiores de Ecatepec (TESE)**, orientado a que principalemte los alumnos de nuevo ingreso se familiaricen con las instalaciones.
+Mapa interactivo del campus del **Tecnológico de Estudios Superiores de Ecatepec (TESE)**, orientado a que, principalemte los alumnos de nuevo ingreso, se familiaricen con las instalaciones.
 
 ---
 
@@ -37,7 +37,7 @@ UbicaTESE/
 
 ## 🚀 Cómo usarlo
 
-1. Escanea el código QR para apreciar la página (en proceso)
+1. Escanea el código QR para apreciar la página.
 
 > No se necesita instalar nada.
 
@@ -49,7 +49,7 @@ Para agregar un nuevo edificio al mapa:
 
 1. Abre el archivo con `?trazar` al final de la URL:
    ```
-   index.html?trazar
+   link?trazar
    ```
 2. Haz clic en cada esquina del edificio sobre el mapa
 3. Copia el texto generado en el campo de texto
@@ -78,6 +78,7 @@ Para agregar un nuevo edificio al mapa:
 - CSS3
 - JavaScript (vanilla, sin frameworks)
 - SVG
+- Python
 
 ---
 

@@ -1,6 +1,6 @@
 # 🗺️ UbicaTESE – Mapa Interactivo del Campus
 
-Mapa interactivo del campus del **Tecnológico de Estudios Superiores de Ecatepec (TESE)**, orientado a que, principalemte los alumnos de nuevo ingreso, se familiaricen con las instalaciones.
+Mapa interactivo del campus del **Tecnológico de Estudios Superiores de Ecatepec (TESE)**, orientado a que, principalmente los alumnos de nuevo ingreso, se familiaricen con las instalaciones.
 
 ---
 
@@ -85,7 +85,7 @@ Para agregar un nuevo edificio al mapa:
 ## 👤 Autor
 
 Desarrollado por **Godínez Atzimba** como proyecto individual.  
-Ingeniería en Sistemas Computacionales — TESE
+Estudiante de Ingeniería en Sistemas Computacionales — TESE
 
 ---
 

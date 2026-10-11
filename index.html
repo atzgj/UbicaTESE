@@ -97,8 +97,8 @@
 
         /* Estado normal: relleno amarillo semitransparente, borde naranja */
         .edificio {
-            fill: rgba(255, 213, 79, 0.35);
-            stroke: #e65100;
+            fill: transparent;
+            stroke: transparent;
             stroke-width: 2;
         }
 
@@ -109,15 +109,16 @@
     */
         @media (hover: hover) {
             .edificio:hover {
-                fill: rgba(216, 230, 207, 0.719);
+                fill: rgba(126, 196, 132, 0.603);
+                stroke: transparent;
                 cursor: pointer;
             }
         }
 
         /* Estado seleccionado: relleno azul, borde azul más grueso */
         .edificio.seleccionado {
-            fill: rgba(66, 133, 244, 0.6);
-            stroke: #1a73e8;
+            fill: rgba(223, 153, 153, 0.555);
+            stroke: transparent;
             stroke-width: 3;
         }
 
@@ -184,7 +185,7 @@
             <!--
         Imagen de fondo del campus.
         - href: ruta a la imagen (debe estar en la misma carpeta)
-        - width/height: deben coincidir con los valores del viewBox (665 y 284)
+        - width/height: deben coincidir con los valores del viewBox
       -->
             <image href="campus.png" x="0" y="0" width="2302" height="1011" />
 

@@ -475,6 +475,7 @@
             // Llena la tarjeta con los datos del edificio clickeado
             document.getElementById("tarjeta-nombre").textContent = edificio.nombre;
             document.getElementById("tarjeta-descripcion").textContent = edificio.descripcion;
+            tarjetaImagen.setAttribute("src", edificio.imagen); // actualiza la imagen de la tarjeta
             tarjeta.classList.remove("oculta"); // hace visible la tarjeta con animación
         }
 

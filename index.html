@@ -39,9 +39,10 @@
         #tarjeta {
             position: absolute;
             top: 16px;
-            right: 100px;
-            width: 650px;
+            right: 16px; 
+            width: 650px; 
             max-width: calc(100% - 32px);
+            min-height: 200px; /* asegura que la tarjeta tenga un tamaño mínimo */
             /* evita que se salga del mapa en pantallas pequeñas */
             background: #ffffff;
             border-radius: 12px;
@@ -88,8 +89,8 @@
         }
 
         #tarjeta-imagen {
-            width: 200px;
-            height: 200px;
+            width: 200px; 
+            height: 200px; /* tamaño fijo para mantener consistencia */
             object-fit: cover;
             border-radius: 8px;
         }
